@@ -1,0 +1,258 @@
+openapi: 3.0.3
+info:
+  title: RSVPlaner
+  description: RSVPlaner
+  version: 0.0.1
+paths:
+  /v1/event/:
+    post:
+      tags:
+        - event
+      summary: Create Event
+      operationId: createEvent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewEvent'
+      responses:
+        201:
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        default:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - event
+      summary: Get Events
+      operationId: getEvents
+      parameters:
+        - name: event_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - PRIVATE
+              - PUBLIC
+        - name: organizer
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+  /v1/event/{event_id}:
+    get:
+      tags:
+        - event
+      summary: Get Event
+      operationId: getEvent
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - event
+      summary: Add event attendee
+      operationId: addEventAttendee
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Attendee'
+      responses:
+        204:
+          description: No content
+          content: { }
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - event
+      summary: Upload event image
+      operationId: uploadEventImage
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          image/*:
+            schema:
+              type: string
+              format: binary
+      responses:
+        204:
+          description: No content
+          content: { }
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+    Event:
+      type: object
+      properties:
+        event_id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        event_type:
+          type: string
+          enum:
+            - PRIVATE
+            - PUBLIC
+        organizer:
+          $ref: '#/components/schemas/Organizer'
+        attendees:
+          type: array
+          description: Only set if the event type is private
+          items:
+            $ref: '#/components/schemas/Attendee'
+        attendees_count:
+          type: integer
+    Attendee:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        attendee_availabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendeeAvailability'
+    AttendeeAvailability:
+      type: object
+      properties:
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+            - ACCEPTED
+            - DECLINED
+    NewEvent:
+      type: object
+      required:
+        - title
+        - description
+        - possible_date_times
+        - location
+        - event_type
+        - organizer
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        possible_date_times:
+          type: array
+          items:
+            type: object
+            properties:
+              start_date:
+                type: string
+                format: date-time
+              end_date:
+                type: string
+                format: date-time
+        location:
+          type: string
+        event_type:
+          type: string
+          enum:
+            - PRIVATE
+            - PUBLIC
+        organizer:
+          $ref: '#/components/schemas/Organizer'
+    Organizer:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string

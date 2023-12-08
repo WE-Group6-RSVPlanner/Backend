@@ -1,4 +1,4 @@
-package wegroup6.rsvpplaner;
+package com.rsvpplaner;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

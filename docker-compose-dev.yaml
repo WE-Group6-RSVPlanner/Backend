@@ -1,0 +1,18 @@
+version: "3"
+services:
+  postgres:
+    image: postgres:latest
+    networks:
+      - backend
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=testpostgres
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    restart: always
+
+networks:
+  backend:
+volumes:
+  pg-data:
