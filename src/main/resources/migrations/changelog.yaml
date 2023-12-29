@@ -1,0 +1,3 @@
+databaseChangeLog:
+  - include:
+      file: classpath:migrations/1_event.sql

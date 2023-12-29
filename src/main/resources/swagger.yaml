@@ -31,18 +31,30 @@ paths:
     get:
       tags:
         - event
-      summary: Get Events
-      operationId: getEvents
+      summary: Find Events
+      operationId: findEvents
       parameters:
+        - name: page_offset
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: page_size
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
         - name: event_type
           in: query
-          required: false
+          required: true
           schema:
-            type: string
-            enum:
-              - PRIVATE
-              - PUBLIC
-        - name: organizer
+            $ref: '#/components/schemas/EventType'
+        - name: organizer_email
           in: query
           required: false
           schema:
@@ -177,10 +189,7 @@ components:
         location:
           type: string
         event_type:
-          type: string
-          enum:
-            - PRIVATE
-            - PUBLIC
+          $ref: '#/components/schemas/EventType'
         organizer:
           $ref: '#/components/schemas/Organizer'
         attendees:
@@ -190,6 +199,11 @@ components:
             $ref: '#/components/schemas/Attendee'
         attendees_count:
           type: integer
+    EventType:
+      type: string
+      enum:
+        - PRIVATE
+        - PUBLIC
     Attendee:
       type: object
       properties:
@@ -243,10 +257,7 @@ components:
         location:
           type: string
         event_type:
-          type: string
-          enum:
-            - PRIVATE
-            - PUBLIC
+          $ref: '#/components/schemas/EventType'
         organizer:
           $ref: '#/components/schemas/Organizer'
     Organizer:

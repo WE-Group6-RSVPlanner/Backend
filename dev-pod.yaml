@@ -7,6 +7,9 @@ spec:
     - name: postgres-data
       persistentVolumeClaim:
         claimName: rsvplaner-pgdatavol
+    - name: minio-data
+      persistentVolumeClaim:
+        claimName: minio-data
   containers:
     - image: docker.io/library/postgres:latest
       name: postgres
@@ -26,4 +29,17 @@ spec:
         requests:
           memory: "256Mi"
           cpu: "100m"
+    - image: quay.io/minio/minio:latest
+      name: minio
+      ports:
+        - hostPort: 9090
+          containerPort: 9090
+      command:
+        - /bin/bash
+        - -c
+      args:
+        - minio server /data --console-address :9090
+      volumeMounts:
+        - mountPath: /data
+          name: minio-data
   restartPolicy: Always

@@ -10,10 +10,10 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.server.ResponseStatusException;
 import rsvplaner.v1.api.EventApi;
 import rsvplaner.v1.model.Attendee;
 import rsvplaner.v1.model.Event;
+import rsvplaner.v1.model.EventType;
 import rsvplaner.v1.model.NewEvent;
 
 @Controller
@@ -29,24 +29,29 @@ public class EventController implements EventApi {
     @Override
     public ResponseEntity<Event> createEvent(NewEvent newEvent) {
         if (newEvent == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "request body must be set");
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST, "request body must be set");
         }
 
         if (StringUtils.isBlank(newEvent.getTitle())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "title must be set");
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST, "title must be set");
         }
 
         if (newEvent.getOrganizer() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "organizer must be set");
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST, "organizer must be set");
         }
 
         if (newEvent.getOrganizer().getEmail() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
                     "organizer email must be set");
         }
 
         if (newEvent.getOrganizer().getName() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "organizer name must be set");
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST, "organizer name must be set");
+        }
+
+        if (newEvent.getPossibleDateTimes() == null || newEvent.getPossibleDateTimes().isEmpty()) {
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                    "at least one possible date time must be given");
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(eventService.createEvent(newEvent));
@@ -54,17 +59,34 @@ public class EventController implements EventApi {
 
     @Override
     public ResponseEntity<Event> getEvent(String eventId) {
-        return null;
+        return ResponseEntity.ok(eventService.getEvent(eventId));
     }
 
     @Override
-    public ResponseEntity<List<Event>> getEvents(String eventType, String organizer,
-            OffsetDateTime startDate, OffsetDateTime endDate) {
-        return null;
+    public ResponseEntity<List<Event>> findEvents(Integer pageOffset, Integer pageSize,
+            EventType eventType, String organizerEmail, OffsetDateTime startDate,
+            OffsetDateTime endDate) {
+
+        if (pageOffset == null || pageSize == null) {
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                    "page offset and page size must be set");
+        }
+
+        if (eventType == null) {
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                    "event type is not set");
+        }
+
+        return ResponseEntity.ok(
+                eventService.findEvents(pageOffset, pageSize,
+                        eventType, organizerEmail,
+                        startDate != null ? startDate.toInstant() : null,
+                        endDate != null ? endDate.toInstant() : null));
     }
 
     @Override
     public ResponseEntity<Void> uploadEventImage(String eventId, Resource body) {
+        eventService.uploadImage(eventId, body);
         return null;
     }
 

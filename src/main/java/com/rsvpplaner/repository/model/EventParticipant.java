@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
@@ -28,6 +29,8 @@ import lombok.Setter;
 public class EventParticipant {
 
     @Id
+    private String id;
+
     @Column(name = "email", nullable = false)
     private String email;
 
@@ -38,8 +41,8 @@ public class EventParticipant {
     @Column(name = "participant_type")
     private ParticipantType participantType;
 
-    @OneToOne
-    @JoinColumn(name = "event_id", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "event_id", referencedColumnName = "id", nullable = false)
     private Event event;
 
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "participant", cascade = CascadeType.ALL)
