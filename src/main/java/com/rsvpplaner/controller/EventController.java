@@ -63,11 +63,11 @@ public class EventController implements EventApi {
     }
 
     @Override
-    public ResponseEntity<List<Event>> findEvents(Integer pageOffset, Integer pageSize,
+    public ResponseEntity<List<Event>> findEvents(Integer pageNumber, Integer pageSize,
             EventType eventType, String organizerEmail, OffsetDateTime startDate,
             OffsetDateTime endDate) {
 
-        if (pageOffset == null || pageSize == null) {
+        if (pageNumber == null || pageSize == null) {
             throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
                     "page offset and page size must be set");
         }
@@ -77,8 +77,23 @@ public class EventController implements EventApi {
                     "event type is not set");
         }
 
+        if (startDate != null && endDate == null) {
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                    "end date must be set if start date is set");
+        }
+
+        if (startDate == null && endDate != null) {
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                    "start date must be set if end date is set");
+        }
+
+        if (startDate != null && startDate.isAfter(endDate)) {
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                    "start date must be before end date");
+        }
+
         return ResponseEntity.ok(
-                eventService.findEvents(pageOffset, pageSize,
+                eventService.findEvents(pageNumber, pageSize,
                         eventType, organizerEmail,
                         startDate != null ? startDate.toInstant() : null,
                         endDate != null ? endDate.toInstant() : null));

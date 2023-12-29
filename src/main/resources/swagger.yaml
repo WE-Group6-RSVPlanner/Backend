@@ -34,9 +34,13 @@ paths:
       summary: Find Events
       operationId: findEvents
       parameters:
-        - name: page_offset
+        - name: page_number
           in: query
           required: true
+          description: |- 
+            The page number to return. Starts at 0. A page contains the number of elements specified
+            by the 'page_size' parameter. To retrieve the next page in correct order, increment the 
+            page number by 1 and do not change the 'page_size' parameter.
           schema:
             type: integer
             minimum: 0
@@ -80,6 +84,18 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Event'
+        404:
+          description: no events found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /v1/event/{event_id}:
     get:
       tags:
@@ -199,6 +215,17 @@ components:
             $ref: '#/components/schemas/Attendee'
         attendees_count:
           type: integer
+        date_times:
+          type: array
+          items:
+            type: object
+            properties:
+              start_date:
+                type: string
+                format: date-time
+              end_date:
+                type: string
+                format: date-time
     EventType:
       type: string
       enum:

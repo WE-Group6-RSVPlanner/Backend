@@ -2,6 +2,8 @@ package com.rsvpplaner.repository.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -14,6 +16,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import rsvplaner.v1.model.AttendeeAvailability;
 
 @Table(name = "event_participant_availability")
 @Entity
@@ -40,4 +43,8 @@ public class EventParticipantAvailability {
 
     @Column(name = "end_time")
     private Instant endTime;
+
+    @Column(name = "status")
+    @Enumerated(EnumType.STRING)
+    private AttendeeAvailability.StatusEnum status;
 }

@@ -1,5 +1,7 @@
 package com.rsvpplaner.service;
 
+import static java.time.ZoneOffset.UTC;
+
 import com.rsvpplaner.controller.ErrorResponseException;
 import com.rsvpplaner.repository.EventParticipantAvailabilityRepository;
 import com.rsvpplaner.repository.EventParticipantRepository;
@@ -14,28 +16,31 @@ import io.minio.errors.InvalidResponseException;
 import io.minio.errors.ServerException;
 import io.minio.errors.XmlParserException;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.criteria.Predicate;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Example;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import rsvplaner.v1.model.Attendee;
+import rsvplaner.v1.model.AttendeeAvailability;
 import rsvplaner.v1.model.Event;
+import rsvplaner.v1.model.EventDateTimesInner;
 import rsvplaner.v1.model.EventType;
 import rsvplaner.v1.model.NewEvent;
-import rsvplaner.v1.model.NewEventPossibleDateTimesInner;
 import rsvplaner.v1.model.Organizer;
 
 @Service
@@ -104,13 +109,26 @@ public class EventService {
                 .build();
 
         var availabilities = attendee.getAttendeeAvailabilities().stream().map(
-                a -> EventParticipantAvailability.builder()
-                        .id(UUID.randomUUID().toString())
-                        .event(event)
-                        .participant(eventParticipant)
-                        .startTime(a.getStartDate().toInstant())
-                        .endTime(a.getEndDate().toInstant())
-                        .build()).toList();
+                a -> {
+                    if (a.getStartDate() == null || a.getEndDate() == null) {
+                        throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                                "attendee availability start and end date must be set");
+                    }
+
+                    if (StringUtils.isBlank(a.getStatus().toString())) {
+                        throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                                "attendee availability status must be set");
+                    }
+
+                    return EventParticipantAvailability.builder()
+                            .id(UUID.randomUUID().toString())
+                            .event(event)
+                            .participant(eventParticipant)
+                            .startTime(a.getStartDate().toInstant())
+                            .endTime(a.getEndDate().toInstant())
+                            .status(a.getStatus())
+                            .build();
+                }).toList();
 
         for (var a : availabilities) {
             if (event.getEventDates().stream().noneMatch(
@@ -121,7 +139,7 @@ public class EventService {
                                 "availability with start time: %s and end time: %s does not match"
                                 + " any possible event date",
                                 a.getStartTime().atOffset(
-                                        ZoneOffset.UTC), a.getEndTime().atOffset(ZoneOffset.UTC)));
+                                        UTC), a.getEndTime().atOffset(UTC)));
             }
         }
 
@@ -136,34 +154,30 @@ public class EventService {
         return mapToApiEvent(event);
     }
 
-    public List<Event> findEvents(int pageSize, int pageOffset, EventType eventType,
-            String organizer,
-            Instant startDate,
-            Instant endDate) {
-        var cb = entityManager.getCriteriaBuilder();
-        var query = cb.createQuery(com.rsvpplaner.repository.model.Event.class);
-        var root = query.from(com.rsvpplaner.repository.model.Event.class);
+    public List<Event> findEvents(int pageNumber, int pageSize, EventType eventType,
+            String organizerEmail,
+            Instant startTime,
+            Instant endTime) {
+        com.rsvpplaner.repository.model.Event event = new com.rsvpplaner.repository.model.Event();
+        event.setEventType(eventType);
 
-        var predicates = new ArrayList<>();
-        if (organizer != null) {
-            predicates.add(cb.equal(root.get("organizerEmail"), organizer));
+        if (organizerEmail != null) {
+            event.setOrganizerEmail(organizerEmail);
         }
 
-        if (startDate != null) {
-            predicates.add(cb.greaterThanOrEqualTo(root.get("startDate"), startDate));
+        if (startTime != null && endTime != null) {
+            event.setEventDates(List.of(com.rsvpplaner.repository.model.EventDate.builder()
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .build()));
         }
 
-        if (endDate != null) {
-            predicates.add(cb.lessThanOrEqualTo(root.get("endDate"), endDate));
-        }
+        Example<com.rsvpplaner.repository.model.Event> eventExample = Example.of(event);
 
-        predicates.add(cb.equal(root.get("eventType"), eventType));
+        Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(
+                Sort.Direction.DESC, "eventDates"));
 
-        var events = entityManager
-                .createQuery(
-                        query.select(root).where(predicates.toArray(new Predicate[0])))
-                .setFirstResult(pageOffset).setMaxResults(pageSize)
-                .getResultList();
+        var events = eventRepository.findAll(eventExample, pageable);
 
         if (events.isEmpty()) {
             throw new ErrorResponseException(HttpStatus.NOT_FOUND, "no events found");
@@ -194,13 +208,14 @@ public class EventService {
 
     private EventParticipantAvailability mapAvailability(
             com.rsvpplaner.repository.model.Event event,
-            EventParticipant eventParticipant, NewEventPossibleDateTimesInner availability) {
+            EventParticipant eventParticipant, EventDateTimesInner availability) {
         return EventParticipantAvailability.builder()
                 .id(UUID.randomUUID().toString())
                 .event(event)
                 .participant(eventParticipant)
                 .startTime(availability.getStartDate().toInstant())
                 .endTime(availability.getEndDate().toInstant())
+                .status(AttendeeAvailability.StatusEnum.ACCEPTED)
                 .build();
     }
 
@@ -213,8 +228,17 @@ public class EventService {
         event.setEventType(dbEvent.getEventType());
         event.setOrganizer(new Organizer().name(dbEvent.getOrganizerName())
                 .email(dbEvent.getOrganizerEmail()));
+        event.dateTimes(dbEvent.getEventDates().stream().map(
+                d -> new EventDateTimesInner().startDate(d.getStartTime().atOffset(
+                        UTC)).endDate(d.getEndTime().atOffset(UTC))).toList());
         event.setAttendees(dbEvent.getEventParticipants().stream().map(
-                p -> new Attendee().name(p.getName()).email(p.getEmail())).toList());
+                p -> new Attendee().name(p.getName()).email(p.getEmail()).attendeeAvailabilities(
+                        p.getAvailabilities().stream().map(
+                                a -> new AttendeeAvailability().startDate(
+                                        a.getStartTime().atOffset(
+                                                UTC)).endDate(
+                                        a.getEndTime().atOffset(UTC)).status(
+                                        a.getStatus())).toList())).toList());
         event.setAttendeesCount(dbEvent.getEventParticipants().size());
         return event;
     }

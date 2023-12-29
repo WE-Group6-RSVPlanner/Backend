@@ -42,8 +42,9 @@ create table event_participant_availability
     id                   varchar not null primary key,
     event_participant_id varchar not null,
     event_id             varchar not null,
-    end_time             timestamp with time zone,
-    start_time           timestamp with time zone,
+    end_time   timestamptz not null,
+    start_time timestamptz not null,
+    status     varchar     not null,
 
     constraint participant_availability_id foreign key (event_participant_id) references event_participant (id),
     constraint participant_availability_event foreign key (event_id) references event (id)
