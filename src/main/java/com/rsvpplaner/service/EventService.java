@@ -2,13 +2,14 @@ package com.rsvpplaner.service;
 
 import static java.time.ZoneOffset.UTC;
 
-import com.google.common.io.Files;
 import com.rsvpplaner.controller.ErrorResponseException;
 import com.rsvpplaner.repository.EventParticipantAvailabilityRepository;
 import com.rsvpplaner.repository.EventParticipantRepository;
 import com.rsvpplaner.repository.EventRepository;
 import com.rsvpplaner.repository.model.EventParticipant;
 import com.rsvpplaner.repository.model.EventParticipantAvailability;
+import com.rsvpplaner.repository.model.EventTimes;
+import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
@@ -18,20 +19,17 @@ import io.minio.errors.InvalidResponseException;
 import io.minio.errors.ServerException;
 import io.minio.errors.XmlParserException;
 import jakarta.persistence.EntityManager;
-import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.PageRequest;
@@ -41,7 +39,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.FileCopyUtils;
 import rsvplaner.v1.model.Attendee;
 import rsvplaner.v1.model.AttendeeAvailability;
 import rsvplaner.v1.model.Event;
@@ -57,7 +54,6 @@ public class EventService {
     private final EventRepository eventRepository;
     private final EventParticipantRepository eventParticipantRepository;
     private final EventParticipantAvailabilityRepository availabilityRepository;
-    private final EntityManager entityManager;
     private final MinioClient minioClient;
 
     private final String imageBucketName;
@@ -65,12 +61,11 @@ public class EventService {
     public EventService(EventRepository eventRepository,
             EventParticipantRepository eventParticipantRepository,
             EventParticipantAvailabilityRepository availabilityRepository,
-            EntityManager entityManager, MinioClient minioClient,
+            MinioClient minioClient,
             @Value("${minio.bucket.eventimages}") String imageBucketName) {
         this.eventRepository = eventRepository;
         this.eventParticipantRepository = eventParticipantRepository;
         this.availabilityRepository = availabilityRepository;
-        this.entityManager = entityManager;
         this.minioClient = minioClient;
         this.imageBucketName = imageBucketName;
     }
@@ -115,11 +110,16 @@ public class EventService {
                 .event(event)
                 .build();
 
+        if (attendee.getAttendeeAvailabilities().size() > event.getEventTimes().size()) {
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                    "you provided more availabilities than possible times");
+        }
+
         var availabilities = attendee.getAttendeeAvailabilities().stream().map(
                 a -> {
-                    if (a.getStartDate() == null || a.getEndDate() == null) {
+                    if (a.getStartTime() == null || a.getEndTime() == null) {
                         throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
-                                "attendee availability start and end date must be set");
+                                "attendee availability start and end time must be set");
                     }
 
                     if (StringUtils.isBlank(a.getStatus().toString())) {
@@ -127,28 +127,28 @@ public class EventService {
                                 "attendee availability status must be set");
                     }
 
+                    if (event.getEventTimes().stream().noneMatch(
+                            d -> d.getStartTime().equals(a.getStartTime().toInstant())
+                                 && d.getEndTime().equals(
+                                    a.getEndTime().toInstant()))) {
+                        throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                                String.format(
+                                        "availability with start time: %s and end time: %s does "
+                                        + "not match"
+                                        + " any possible event times",
+                                        a.getStartTime(), a.getEndTime()));
+                    }
+
+
                     return EventParticipantAvailability.builder()
                             .id(UUID.randomUUID().toString())
                             .event(event)
                             .participant(eventParticipant)
-                            .startTime(a.getStartDate().toInstant())
-                            .endTime(a.getEndDate().toInstant())
+                            .startTime(a.getStartTime().toInstant())
+                            .endTime(a.getEndTime().toInstant())
                             .status(a.getStatus())
                             .build();
                 }).toList();
-
-        for (var a : availabilities) {
-            if (event.getEventDates().stream().noneMatch(
-                    d -> d.getStartTime().equals(a.getStartTime()) && d.getEndTime().equals(
-                            a.getEndTime()))) {
-                throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
-                        String.format(
-                                "availability with start time: %s and end time: %s does not match"
-                                + " any possible event date",
-                                a.getStartTime().atOffset(
-                                        UTC), a.getEndTime().atOffset(UTC)));
-            }
-        }
 
         eventParticipant.setAvailabilities(availabilities);
         eventParticipantRepository.save(eventParticipant);
@@ -173,7 +173,7 @@ public class EventService {
         }
 
         if (startTime != null && endTime != null) {
-            event.setEventDates(List.of(com.rsvpplaner.repository.model.EventDate.builder()
+            event.setEventTimes(List.of(EventTimes.builder()
                     .startTime(startTime)
                     .endTime(endTime)
                     .build()));
@@ -182,7 +182,7 @@ public class EventService {
         Example<com.rsvpplaner.repository.model.Event> eventExample = Example.of(event);
 
         Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(
-                Sort.Direction.DESC, "eventDates"));
+                Sort.Direction.DESC, "eventTimes"));
 
         var events = eventRepository.findAll(eventExample, pageable);
 
@@ -203,12 +203,12 @@ public class EventService {
         event.setLocation(newEvent.getLocation());
         event.setOrganizerEmail(newEvent.getOrganizer().getEmail());
         event.setOrganizerName(newEvent.getOrganizer().getName());
-        event.setEventDates(newEvent.getPossibleDateTimes().stream().map(
-                d -> com.rsvpplaner.repository.model.EventDate.builder()
+        event.setEventTimes(newEvent.getPossibleDateTimes().stream().map(
+                d -> EventTimes.builder()
                         .id(UUID.randomUUID().toString())
                         .event(event)
-                        .startTime(d.getStartDate().toInstant())
-                        .endTime(d.getEndDate().toInstant())
+                        .startTime(d.getStartTime().toInstant())
+                        .endTime(d.getEndTime().toInstant())
                         .build()).toList());
         return event;
     }
@@ -220,8 +220,8 @@ public class EventService {
                 .id(UUID.randomUUID().toString())
                 .event(event)
                 .participant(eventParticipant)
-                .startTime(availability.getStartDate().toInstant())
-                .endTime(availability.getEndDate().toInstant())
+                .startTime(availability.getStartTime().toInstant())
+                .endTime(availability.getEndTime().toInstant())
                 .status(AttendeeAvailability.StatusEnum.ACCEPTED)
                 .build();
     }
@@ -235,18 +235,27 @@ public class EventService {
         event.setEventType(dbEvent.getEventType());
         event.setOrganizer(new Organizer().name(dbEvent.getOrganizerName())
                 .email(dbEvent.getOrganizerEmail()));
-        event.dateTimes(dbEvent.getEventDates().stream().map(
-                d -> new EventDateTimesInner().startDate(d.getStartTime().atOffset(
-                        UTC)).endDate(d.getEndTime().atOffset(UTC))).toList());
-        event.setAttendees(dbEvent.getEventParticipants().stream().map(
-                p -> new Attendee().name(p.getName()).email(p.getEmail()).attendeeAvailabilities(
-                        p.getAvailabilities().stream().map(
-                                a -> new AttendeeAvailability().startDate(
-                                        a.getStartTime().atOffset(
-                                                UTC)).endDate(
-                                        a.getEndTime().atOffset(UTC)).status(
-                                        a.getStatus())).toList())).toList());
-        event.setAttendeesCount(dbEvent.getEventParticipants().size());
+        event.dateTimes(dbEvent.getEventTimes().stream().map(
+                d -> new EventDateTimesInner().startTime(d.getStartTime().atOffset(
+                        UTC)).endTime(d.getEndTime().atOffset(UTC))).toList());
+        if (dbEvent.getEventType() == EventType.PRIVATE) {
+            event.setAttendees(dbEvent.getEventParticipants().stream().map(
+                    p -> new Attendee().name(p.getName()).email(
+                            p.getEmail()).attendeeAvailabilities(
+                            p.getAvailabilities().stream().map(
+                                    a -> new AttendeeAvailability().startTime(
+                                            a.getStartTime().atOffset(
+                                                    UTC)).endTime(
+                                            a.getEndTime().atOffset(UTC)).status(
+                                            a.getStatus())).toList())).toList());
+
+            event.setAttendeesCount(dbEvent.getEventParticipants().size());
+        }
+
+        if (dbEvent.getEventType() == EventType.PUBLIC) {
+            event.setAttendeesCount(eventParticipantRepository.countByEvent(dbEvent).intValue());
+        }
+
         return event;
     }
 
@@ -283,6 +292,37 @@ public class EventService {
             throw new RuntimeException(e);
         } catch (io.minio.errors.ErrorResponseException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public Resource getEventImage(String eventId) {
+        try {
+            var image = minioClient.getObject(
+                    GetObjectArgs.builder().bucket(imageBucketName).object(eventId).build()
+            );
+
+            return new ByteArrayResource(image.readAllBytes());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (ErrorResponseException e) {
+            throw new RuntimeException(e);
+        } catch (ServerException e) {
+            throw new RuntimeException(e);
+        } catch (InsufficientDataException e) {
+            throw new RuntimeException(e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException(e);
+        } catch (InvalidResponseException e) {
+            throw new RuntimeException(e);
+        } catch (XmlParserException e) {
+            throw new RuntimeException(e);
+        } catch (InternalException e) {
+            throw new RuntimeException(e);
+        } catch (io.minio.errors.ErrorResponseException e) {
+            throw new ErrorResponseException(HttpStatus.NOT_FOUND,
+                    String.format("image for event with id %s not found", eventId));
         }
     }
 }

@@ -49,9 +49,9 @@ public class Event {
     @Column(name = "organizer_name")
     private String organizerName;
 
-    @OneToMany(fetch = FetchType.EAGER, mappedBy = "event", cascade = CascadeType.ALL)
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "event", cascade = CascadeType.ALL)
     private List<EventParticipant> eventParticipants;
 
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "event", cascade = CascadeType.ALL)
-    private List<EventDate> eventDates;
+    private List<EventTimes> eventTimes;
 }

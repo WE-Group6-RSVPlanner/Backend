@@ -63,13 +63,13 @@ paths:
           required: false
           schema:
             type: string
-        - name: start_date
+        - name: start_time
           in: query
           required: false
           schema:
             type: string
             format: date-time
-        - name: end_date
+        - name: end_time
           in: query
           required: false
           schema:
@@ -186,6 +186,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /v1/event/{event_id}/image:
+    get:
+      tags:
+        - event
+      summary: Get Event Image
+      operationId: getEventImage
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: OK
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     ErrorResponse:
@@ -220,10 +252,10 @@ components:
           items:
             type: object
             properties:
-              start_date:
+              start_time:
                 type: string
                 format: date-time
-              end_date:
+              end_time:
                 type: string
                 format: date-time
     EventType:
@@ -245,10 +277,10 @@ components:
     AttendeeAvailability:
       type: object
       properties:
-        start_date:
+        start_time:
           type: string
           format: date-time
-        end_date:
+        end_time:
           type: string
           format: date-time
         status:
@@ -275,10 +307,10 @@ components:
           items:
             type: object
             properties:
-              start_date:
+              start_time:
                 type: string
                 format: date-time
-              end_date:
+              end_time:
                 type: string
                 format: date-time
         location:

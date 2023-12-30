@@ -11,17 +11,17 @@ create table event
 
 create index event_type_idx ON event (event_type);
 
-create table event_dates
+create table event_times
 (
     id         varchar     not null primary key,
     event_id   varchar     not null,
     start_time timestamptz not null,
     end_time   timestamptz not null,
 
-    constraint event_dates_event_id foreign key (event_id) references event (id)
+    constraint event_times_event_id foreign key (event_id) references event (id)
 );
 
-create index event_dates_event_id_idx ON event_dates (event_id);
+create index event_times_event_id_idx ON event_times (event_id);
 
 create table event_participant
 (

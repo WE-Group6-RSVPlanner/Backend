@@ -1,7 +1,6 @@
 package com.rsvpplaner.controller;
 
 import com.rsvpplaner.service.EventService;
-import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
@@ -11,8 +10,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 import rsvplaner.v1.api.EventApi;
 import rsvplaner.v1.model.Attendee;
 import rsvplaner.v1.model.Event;
@@ -55,6 +52,12 @@ public class EventController implements EventApi {
         if (newEvent.getPossibleDateTimes() == null || newEvent.getPossibleDateTimes().isEmpty()) {
             throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
                     "at least one possible date time must be given");
+        }
+
+        if (newEvent.getEventType() == EventType.PUBLIC
+            && newEvent.getPossibleDateTimes().size() != 1) {
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                    "public events must have exactly one possible date time");
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(eventService.createEvent(newEvent));
@@ -112,5 +115,10 @@ public class EventController implements EventApi {
     public ResponseEntity<Void> addEventAttendee(String eventId, Attendee attendee) {
         eventService.addEventAttendee(eventId, attendee);
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<Resource> getEventImage(String eventId) {
+        return ResponseEntity.ok(eventService.getEventImage(eventId));
     }
 }

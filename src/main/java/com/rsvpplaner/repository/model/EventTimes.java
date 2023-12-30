@@ -14,14 +14,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Table(name = "event_dates")
+@Table(name = "event_times")
 @Entity
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class EventDate {
+public class EventTimes {
 
     @Id
     @Column(name = "id")
@@ -41,11 +41,11 @@ public class EventDate {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof EventDate eventDate)) return false;
-        return Objects.equals(getId(), eventDate.getId()) && Objects.equals(
-                getEvent(), eventDate.getEvent()) && Objects.equals(getStartTime(),
-                eventDate.getStartTime()) && Objects.equals(getEndTime(),
-                eventDate.getEndTime());
+        if (!(o instanceof EventTimes eventTimes)) return false;
+        return Objects.equals(getId(), eventTimes.getId()) && Objects.equals(
+                getEvent(), eventTimes.getEvent()) && Objects.equals(getStartTime(),
+                eventTimes.getStartTime()) && Objects.equals(getEndTime(),
+                eventTimes.getEndTime());
     }
 
     @Override
