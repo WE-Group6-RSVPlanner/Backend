@@ -1,5 +1,7 @@
 package com.rsvpplaner.config;
 
+import io.minio.BucketExistsArgs;
+import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -17,11 +19,26 @@ public class ObjectStorage {
     @Value("${minio.password}")
     private String minioPassword;
 
+    @Value("${minio.bucket.eventimages}")
+    private String minioBucket;
+
     @Bean
     public MinioClient minioClient() {
-        return MinioClient.builder()
+        var client = MinioClient.builder()
                 .endpoint(minioHost)
                 .credentials(minioUsername, minioPassword)
                 .build();
+
+        try {
+            var exists = client.bucketExists(
+                    BucketExistsArgs.builder().bucket(minioBucket).build());
+            if (!exists) {
+                client.makeBucket(MakeBucketArgs.builder().bucket(minioBucket).build());
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        return client;
     }
 }

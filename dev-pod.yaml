@@ -34,6 +34,8 @@ spec:
       ports:
         - hostPort: 9090
           containerPort: 9090
+        - hostPort: 9000
+          containerPort: 9000
       command:
         - /bin/bash
         - -c

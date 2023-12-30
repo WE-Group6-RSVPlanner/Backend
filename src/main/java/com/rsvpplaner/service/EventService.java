@@ -2,6 +2,7 @@ package com.rsvpplaner.service;
 
 import static java.time.ZoneOffset.UTC;
 
+import com.google.common.io.Files;
 import com.rsvpplaner.controller.ErrorResponseException;
 import com.rsvpplaner.repository.EventParticipantAvailabilityRepository;
 import com.rsvpplaner.repository.EventParticipantRepository;
@@ -10,22 +11,27 @@ import com.rsvpplaner.repository.model.EventParticipant;
 import com.rsvpplaner.repository.model.EventParticipantAvailability;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
 import io.minio.errors.InsufficientDataException;
 import io.minio.errors.InternalException;
 import io.minio.errors.InvalidResponseException;
 import io.minio.errors.ServerException;
 import io.minio.errors.XmlParserException;
 import jakarta.persistence.EntityManager;
+import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.PageRequest;
@@ -35,6 +41,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.FileCopyUtils;
 import rsvplaner.v1.model.Attendee;
 import rsvplaner.v1.model.AttendeeAvailability;
 import rsvplaner.v1.model.Event;
@@ -245,13 +252,19 @@ public class EventService {
 
     public void uploadImage(String eventId, Resource body) {
         try {
+            if (body == null) {
+                minioClient.removeObject(RemoveObjectArgs.builder().bucket(imageBucketName).object(
+                        eventId).build());
+                return;
+            }
+
             minioClient.putObject(PutObjectArgs.builder().bucket(imageBucketName).object(
                     eventId).contentType(
-                    "image/png").stream(body.getInputStream(), body.contentLength(), 1).build());
+                    "image/png").stream(body.getInputStream(), body.contentLength(),
+                    1000000000).build());
 
         } catch (IOException e) {
-            throw new ErrorResponseException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "failed to upload image");
+            throw new RuntimeException(e);
         } catch (ServerException e) {
             throw new RuntimeException(e);
         } catch (InsufficientDataException e) {

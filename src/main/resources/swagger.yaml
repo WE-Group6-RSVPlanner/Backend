@@ -172,7 +172,7 @@ paths:
             type: string
       requestBody:
         content:
-          image/*:
+          image/png:
             schema:
               type: string
               format: binary
