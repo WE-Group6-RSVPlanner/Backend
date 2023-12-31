@@ -18,7 +18,7 @@ create table event_times
     start_time timestamptz not null,
     end_time   timestamptz not null,
 
-    constraint event_times_event_id foreign key (event_id) references event (id)
+    constraint event_times_event_id foreign key (event_id) references event (id) on delete cascade
 );
 
 create index event_times_event_id_idx ON event_times (event_id);
@@ -32,7 +32,7 @@ create table event_participant
     participant_type varchar,
 
     unique (email, event_id),
-    constraint participant_event_id foreign key (event_id) references event (id)
+    constraint participant_event_id foreign key (event_id) references event (id) on delete cascade
 );
 
 create index event_participant_type_event on event_participant (event_id, participant_type);
@@ -46,6 +46,7 @@ create table event_participant_availability
     start_time timestamptz not null,
     status     varchar     not null,
 
-    constraint participant_availability_id foreign key (event_participant_id) references event_participant (id),
-    constraint participant_availability_event foreign key (event_id) references event (id)
+    constraint participant_availability_id foreign key (event_participant_id)
+        references event_participant (id) on delete cascade,
+    constraint participant_availability_event foreign key (event_id) references event (id) on delete cascade
 );

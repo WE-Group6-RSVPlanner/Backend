@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import rsvplaner.v1.api.EventApi;
 import rsvplaner.v1.model.Attendee;
+import rsvplaner.v1.model.AttendeeAvailability;
 import rsvplaner.v1.model.Event;
 import rsvplaner.v1.model.EventType;
 import rsvplaner.v1.model.NewEvent;
@@ -112,13 +113,20 @@ public class EventController implements EventApi {
     }
 
     @Override
-    public ResponseEntity<Void> addEventAttendee(String eventId, Attendee attendee) {
-        eventService.addEventAttendee(eventId, attendee);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Event> addEventAttendee(String eventId, Attendee attendee) {
+        return ResponseEntity.ok(eventService.addEventAttendee(eventId, attendee));
     }
 
     @Override
     public ResponseEntity<Resource> getEventImage(String eventId) {
         return ResponseEntity.ok(eventService.getEventImage(eventId));
+    }
+
+    @Override
+    public ResponseEntity<Event> updateAttendeeAvailability(String eventId, String attendeeEmail,
+            List<AttendeeAvailability> attendeeAvailability) {
+        return ResponseEntity.ok(
+                eventService.updateAttendeeAvailability(eventId, attendeeEmail,
+                        attendeeAvailability));
     }
 }

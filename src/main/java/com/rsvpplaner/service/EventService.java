@@ -18,11 +18,11 @@ import io.minio.errors.InternalException;
 import io.minio.errors.InvalidResponseException;
 import io.minio.errors.ServerException;
 import io.minio.errors.XmlParserException;
-import jakarta.persistence.EntityManager;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
@@ -91,7 +91,7 @@ public class EventService {
         return mapToApiEvent(savedEvent);
     }
 
-    public void addEventAttendee(String eventId, Attendee attendee) {
+    public Event addEventAttendee(String eventId, Attendee attendee) {
         var event = eventRepository.findById(eventId).orElseThrow(() -> new ErrorResponseException(
                 HttpStatus.NOT_FOUND, String.format("event with id %s not found", eventId)));
 
@@ -152,6 +152,10 @@ public class EventService {
 
         eventParticipant.setAvailabilities(availabilities);
         eventParticipantRepository.save(eventParticipant);
+
+        event.addEventParticipant(eventParticipant);
+
+        return mapToApiEvent(event);
     }
 
     public Event getEvent(String eventId) {
@@ -226,6 +230,19 @@ public class EventService {
                 .build();
     }
 
+    private EventParticipantAvailability mapAvailability(
+            com.rsvpplaner.repository.model.Event event,
+            EventParticipant eventParticipant, AttendeeAvailability availability) {
+        return EventParticipantAvailability.builder()
+                .id(UUID.randomUUID().toString())
+                .event(event)
+                .participant(eventParticipant)
+                .startTime(availability.getStartTime().toInstant())
+                .endTime(availability.getEndTime().toInstant())
+                .status(availability.getStatus())
+                .build();
+    }
+
     private Event mapToApiEvent(com.rsvpplaner.repository.model.Event dbEvent) {
         Event event = new Event();
         event.setEventId(dbEvent.getId());
@@ -253,7 +270,9 @@ public class EventService {
         }
 
         if (dbEvent.getEventType() == EventType.PUBLIC) {
-            event.setAttendeesCount(eventParticipantRepository.countByEvent(dbEvent).intValue());
+            event.setAttendeesCount(
+                    availabilityRepository.countDistinctAvailableParticipants(dbEvent,
+                            AttendeeAvailability.StatusEnum.ACCEPTED).intValue());
         }
 
         return event;
@@ -324,5 +343,35 @@ public class EventService {
             throw new ErrorResponseException(HttpStatus.NOT_FOUND,
                     String.format("image for event with id %s not found", eventId));
         }
+    }
+
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public Event updateAttendeeAvailability(String eventId, String attendeeEmail,
+            List<AttendeeAvailability> attendeeAvailability) {
+        var event = eventRepository.findById(eventId).orElseThrow(() -> new ErrorResponseException(
+                HttpStatus.NOT_FOUND, String.format("event with id %s not found", eventId)));
+
+        var eventParticipant = event.getEventParticipants().stream().filter(
+                p -> p.getEmail().equals(attendeeEmail)).findAny().orElseThrow(
+                () -> new ErrorResponseException(
+                        HttpStatus.NOT_FOUND, String.format("attendee with email %s not found",
+                        attendeeEmail)));
+
+        if (eventParticipant.getParticipantType() == EventParticipant.ParticipantType.ORGANISER) {
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                    "organiser availability cannot be updated");
+        }
+
+        var availabilities = new ArrayList<EventParticipantAvailability>();
+        for (var a : attendeeAvailability) {
+            availabilities.add(mapAvailability(event, eventParticipant, a));
+        }
+
+        availabilityRepository.deleteByEventAndParticipant(event, eventParticipant);
+
+        eventParticipant.setAvailabilities(availabilities);
+        eventParticipantRepository.save(eventParticipant);
+
+        return mapToApiEvent(event);
     }
 }

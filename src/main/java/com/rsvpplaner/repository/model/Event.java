@@ -54,4 +54,9 @@ public class Event {
 
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "event", cascade = CascadeType.ALL)
     private List<EventTimes> eventTimes;
+
+    public Event addEventParticipant(EventParticipant eventParticipant) {
+        eventParticipants.add(eventParticipant);
+        return this;
+    }
 }
