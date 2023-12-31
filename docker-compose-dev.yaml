@@ -1,18 +1,31 @@
-version: "3"
+version: '3'
 services:
   postgres:
-    image: postgres:latest
-    networks:
-      - backend
+    image: docker.io/library/postgres:latest
+    environment:
+      POSTGRES_PASSWORD: testpostgres
     ports:
       - "5432:5432"
-    environment:
-      - POSTGRES_PASSWORD=testpostgres
     volumes:
-      - pg-data:/var/lib/postgresql/data
-    restart: always
+      - postgres-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 256M
+          cpus: '0.1'
 
-networks:
-  backend:
+  minio:
+    image: quay.io/minio/minio:latest
+    command: /bin/bash -c "minio server /data --console-address :9090"
+    ports:
+      - "9090:9090"
+      - "9000:9000"
+    volumes:
+      - minio-data:/data
+
 volumes:
-  pg-data:
+  postgres-data:
+  minio-data:
