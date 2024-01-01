@@ -265,8 +265,6 @@ public class EventService {
                                                     UTC)).endTime(
                                             a.getEndTime().atOffset(UTC)).status(
                                             a.getStatus())).toList())).toList());
-
-            event.setAttendeesCount(dbEvent.getEventParticipants().size());
         }
 
         if (dbEvent.getEventType() == EventType.PUBLIC) {
