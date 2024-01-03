@@ -71,7 +71,7 @@ public class EventController implements EventApi {
 
     @Override
     public ResponseEntity<List<Event>> findEvents(Integer pageNumber, Integer pageSize,
-            EventType eventType, String organizerEmail, OffsetDateTime startDate,
+            EventType eventType, String title, String organizerEmail, OffsetDateTime startDate,
             OffsetDateTime endDate) {
 
         if (pageNumber == null || pageSize == null) {
@@ -101,7 +101,7 @@ public class EventController implements EventApi {
 
         return ResponseEntity.ok(
                 eventService.findEvents(pageNumber, pageSize,
-                        eventType, organizerEmail,
+                        eventType, title, organizerEmail,
                         startDate != null ? startDate.toInstant() : null,
                         endDate != null ? endDate.toInstant() : null));
     }

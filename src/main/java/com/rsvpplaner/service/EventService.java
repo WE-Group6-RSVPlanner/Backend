@@ -32,6 +32,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Example;
+import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -166,11 +167,16 @@ public class EventService {
     }
 
     public List<Event> findEvents(int pageNumber, int pageSize, EventType eventType,
+            String title,
             String organizerEmail,
             Instant startTime,
             Instant endTime) {
         com.rsvpplaner.repository.model.Event event = new com.rsvpplaner.repository.model.Event();
         event.setEventType(eventType);
+
+        if (title != null) {
+            event.setTitle(title);
+        }
 
         if (organizerEmail != null) {
             event.setOrganizerEmail(organizerEmail);
@@ -183,7 +189,11 @@ public class EventService {
                     .build()));
         }
 
-        Example<com.rsvpplaner.repository.model.Event> eventExample = Example.of(event);
+        ExampleMatcher exampleMatcher = ExampleMatcher.matching().withMatcher("title",
+                ExampleMatcher.GenericPropertyMatchers.contains().ignoreCase());
+
+        Example<com.rsvpplaner.repository.model.Event> eventExample = Example.of(event,
+                exampleMatcher);
 
         Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(
                 Sort.Direction.DESC, "eventTimes"));

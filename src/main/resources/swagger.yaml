@@ -58,6 +58,12 @@ paths:
           required: true
           schema:
             $ref: '#/components/schemas/EventType'
+        - name: title
+          in: query
+          required: false
+          description: Returns all events that contain the given title as a substring
+          schema:
+              type: string
         - name: organizer_email
           in: query
           required: false
