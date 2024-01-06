@@ -15,6 +15,7 @@ import rsvplaner.v1.model.Attendee;
 import rsvplaner.v1.model.AttendeeAvailability;
 import rsvplaner.v1.model.Event;
 import rsvplaner.v1.model.EventType;
+import rsvplaner.v1.model.InvitedPerson;
 import rsvplaner.v1.model.NewEvent;
 
 @Controller
@@ -59,6 +60,12 @@ public class EventController implements EventApi {
             && newEvent.getPossibleDateTimes().size() != 1) {
             throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
                     "public events must have exactly one possible date time");
+        }
+
+        if (newEvent.getEventType() == EventType.PUBLIC
+                && newEvent.getInvitedPeople() != null
+                && !newEvent.getInvitedPeople().isEmpty()) {
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST, "public events cannot have invited people");
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(eventService.createEvent(newEvent));
@@ -129,5 +136,10 @@ public class EventController implements EventApi {
         return ResponseEntity.ok(
                 eventService.updateAttendeeAvailability(eventId, attendeeEmail,
                         attendeeAvailability));
+    }
+
+    @Override
+    public ResponseEntity<Event> inviteAttendees(String eventId, List<InvitedPerson> invitedPersons) {
+        return ResponseEntity.ok(eventService.inviteAttendees(eventId, invitedPersons));
     }
 }

@@ -44,6 +44,7 @@ import rsvplaner.v1.model.AttendeeAvailability;
 import rsvplaner.v1.model.Event;
 import rsvplaner.v1.model.EventDateTimesInner;
 import rsvplaner.v1.model.EventType;
+import rsvplaner.v1.model.InvitedPerson;
 import rsvplaner.v1.model.NewEvent;
 import rsvplaner.v1.model.Organizer;
 
@@ -74,7 +75,37 @@ public class EventService {
     public Event createEvent(NewEvent newEvent) {
         com.rsvpplaner.repository.model.Event event = mapToDbEvent(newEvent);
 
-        var eventParticipant = EventParticipant.builder()
+        var participants = new ArrayList<EventParticipant>();
+        if (newEvent.getInvitedPeople() != null && !newEvent.getInvitedPeople().isEmpty()) {
+            for (var a : newEvent.getInvitedPeople()) {
+                if (StringUtils.isBlank(a.getEmail())) {
+                    throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                            "attendee email must be set");
+                }
+
+                if (StringUtils.isBlank(a.getName())) {
+                    throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
+                            "attendee name must be set");
+                }
+
+                var eventParticipant = EventParticipant.builder()
+                        .id(UUID.randomUUID().toString())
+                        .email(a.getEmail())
+                        .name(a.getName())
+                        .participantType(EventParticipant.ParticipantType.ATTENDEE)
+                        .event(event)
+                        .build();
+
+                var availabilities = newEvent.getPossibleDateTimes().stream()
+                        .map(d ->
+                                mapAvailability(event, eventParticipant, d, AttendeeAvailability.StatusEnum.UNDECIDED))
+                        .toList();
+                eventParticipant.setAvailabilities(availabilities);
+                participants.add(eventParticipant);
+            }
+        }
+
+        var organizerParticipant = EventParticipant.builder()
                 .id(UUID.randomUUID().toString())
                 .email(newEvent.getOrganizer().getEmail())
                 .name(newEvent.getOrganizer().getName())
@@ -82,10 +113,13 @@ public class EventService {
                 .event(event)
                 .build();
 
-        var availabilities = newEvent.getPossibleDateTimes().stream().map(
-                d -> mapAvailability(event, eventParticipant, d)).toList();
-        eventParticipant.setAvailabilities(availabilities);
-        event.setEventParticipants(List.of(eventParticipant));
+        var availabilities = newEvent.getPossibleDateTimes().stream()
+                .map(d -> mapAvailability(event, organizerParticipant, d, AttendeeAvailability.StatusEnum.ACCEPTED))
+                .toList();
+        organizerParticipant.setAvailabilities(availabilities);
+
+        participants.add(organizerParticipant);
+        event.setEventParticipants(participants);
 
         var savedEvent = eventRepository.save(event);
         return mapToApiEvent(savedEvent);
@@ -247,14 +281,16 @@ public class EventService {
 
     private EventParticipantAvailability mapAvailability(
             com.rsvpplaner.repository.model.Event event,
-            EventParticipant eventParticipant, EventDateTimesInner availability) {
+            EventParticipant eventParticipant,
+            EventDateTimesInner availability,
+            AttendeeAvailability.StatusEnum status) {
         return EventParticipantAvailability.builder()
                 .id(UUID.randomUUID().toString())
                 .event(event)
                 .participant(eventParticipant)
                 .startTime(availability.getStartTime().toInstant())
                 .endTime(availability.getEndTime().toInstant())
-                .status(AttendeeAvailability.StatusEnum.ACCEPTED)
+                .status(status)
                 .build();
     }
 
@@ -400,5 +436,26 @@ public class EventService {
         eventParticipantRepository.save(eventParticipant);
 
         return mapToApiEvent(event);
+    }
+
+    public Event inviteAttendees(String eventId, List<InvitedPerson> invitedPersons) {
+        var event = eventRepository
+                .findById(eventId)
+                .orElseThrow(() -> new ErrorResponseException(
+                        HttpStatus.NOT_FOUND, String.format("event with id %s not found", eventId)));
+
+        invitedPersons.stream()
+                .filter(p -> event.getEventParticipants().stream()
+                        .noneMatch(e -> e.getEmail().equals(p.getEmail())))
+                .map(p -> EventParticipant.builder()
+                        .id(UUID.randomUUID().toString())
+                        .email(p.getEmail())
+                        .name(p.getName())
+                        .participantType(EventParticipant.ParticipantType.ATTENDEE)
+                        .event(event)
+                        .build())
+                .forEach(event::addEventParticipant);
+
+        return mapToApiEvent(eventRepository.save(event));
     }
 }
