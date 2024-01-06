@@ -34,7 +34,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -168,14 +167,36 @@ public class EventService {
 
     public List<Event> findEvents(int pageNumber, int pageSize, EventType eventType,
             String title,
+            String attendeeEmail,
             String organizerEmail,
             Instant startTime,
             Instant endTime) {
+        var pageable = PageRequest.of(pageNumber, pageSize, Sort.by(
+                Sort.Direction.ASC, "title"));
+
+        if (StringUtils.isNotBlank(attendeeEmail)) {
+            var events =
+                    eventRepository.findAllByExampleAndParticipantEmail(
+                            attendeeEmail, eventType, pageable);
+
+            if (events.isEmpty()) {
+                throw new ErrorResponseException(HttpStatus.NOT_FOUND, "no events found");
+            }
+
+            return events.stream().map(this::mapToApiEvent).toList();
+        }
+
         com.rsvpplaner.repository.model.Event event = new com.rsvpplaner.repository.model.Event();
         event.setEventType(eventType);
 
-        if (title != null) {
+        if (StringUtils.isNotBlank(title)) {
             event.setTitle(title);
+        }
+
+        if (StringUtils.isNotBlank(attendeeEmail)) {
+            event.setEventParticipants(List.of(EventParticipant.builder()
+                    .email(attendeeEmail)
+                    .build()));
         }
 
         if (organizerEmail != null) {
@@ -189,14 +210,10 @@ public class EventService {
                     .build()));
         }
 
-        ExampleMatcher exampleMatcher = ExampleMatcher.matching().withMatcher("title",
+        var exampleMatcher = ExampleMatcher.matching().withMatcher("title",
                 ExampleMatcher.GenericPropertyMatchers.contains().ignoreCase());
 
-        Example<com.rsvpplaner.repository.model.Event> eventExample = Example.of(event,
-                exampleMatcher);
-
-        Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(
-                Sort.Direction.DESC, "eventTimes"));
+        var eventExample = Example.of(event, exampleMatcher);
 
         var events = eventRepository.findAll(eventExample, pageable);
 
@@ -215,6 +232,7 @@ public class EventService {
         event.setTitle(newEvent.getTitle());
         event.setDescription(newEvent.getDescription());
         event.setLocation(newEvent.getLocation());
+        event.setLocationDescription(newEvent.getLocationDescription());
         event.setOrganizerEmail(newEvent.getOrganizer().getEmail());
         event.setOrganizerName(newEvent.getOrganizer().getName());
         event.setEventTimes(newEvent.getPossibleDateTimes().stream().map(
@@ -259,6 +277,7 @@ public class EventService {
         event.setTitle(dbEvent.getTitle());
         event.setDescription(dbEvent.getDescription());
         event.setLocation(dbEvent.getLocation());
+        event.setLocationDescription(dbEvent.getLocationDescription());
         event.setEventType(dbEvent.getEventType());
         event.setOrganizer(new Organizer().name(dbEvent.getOrganizerName())
                 .email(dbEvent.getOrganizerEmail()));

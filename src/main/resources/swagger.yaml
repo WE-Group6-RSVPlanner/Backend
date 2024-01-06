@@ -69,6 +69,14 @@ paths:
           required: false
           schema:
             type: string
+        - name: attendee_email
+          in: query
+          description: |- 
+            Returns all events that contain the attendee with the provided emails. Cannot be 
+            combined with other non required parameters.
+          required: false
+          schema:
+            type: string
         - name: start_time
           in: query
           required: false
@@ -291,6 +299,9 @@ components:
           type: string
         location:
           type: string
+        location_description:
+          description: A more detailed description of the location
+          type: string
         event_type:
           $ref: '#/components/schemas/EventType'
         organizer:
@@ -369,6 +380,9 @@ components:
                 type: string
                 format: date-time
         location:
+          type: string
+        location_description:
+          description: A more detailed description of the location
           type: string
         event_type:
           $ref: '#/components/schemas/EventType'

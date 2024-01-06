@@ -43,6 +43,9 @@ public class Event {
     @Column(name = "location")
     private String location;
 
+    @Column(name = "location_description")
+    private String locationDescription;
+
     @Column(name = "organizer_email")
     private String organizerEmail;
 
