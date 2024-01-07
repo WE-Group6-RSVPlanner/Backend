@@ -137,9 +137,4 @@ public class EventController implements EventApi {
                 eventService.updateAttendeeAvailability(eventId, attendeeEmail,
                         attendeeAvailability));
     }
-
-    @Override
-    public ResponseEntity<Event> inviteAttendees(String eventId, List<InvitedPerson> invitedPersons) {
-        return ResponseEntity.ok(eventService.inviteAttendees(eventId, invitedPersons));
-    }
 }

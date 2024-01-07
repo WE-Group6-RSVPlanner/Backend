@@ -235,46 +235,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /v1/event/{event_id}/invites:
-    post:
-      tags:
-        - event
-      summary: Invite attendees
-      description: |- 
-        Invites the attendees to the event. The attendees that are already invited are ignored.
-      operationId: inviteAttendees
-      parameters:
-        - name: event_id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/InvitedPerson'
-      responses:
-        200:
-          description: No content
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Event'
-        404:
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        default:
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /v1/event/{event_id}/{attendee_email}:
     put:
       tags:
