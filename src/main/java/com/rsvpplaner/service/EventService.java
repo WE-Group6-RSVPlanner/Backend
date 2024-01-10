@@ -437,12 +437,16 @@ public class EventService {
         var eventParticipant = getEventParticipant(attendeeEmail, event);
 
         if (eventParticipant.getParticipantType() == EventParticipant.ParticipantType.ORGANISER) {
-            throw new ErrorResponseException(HttpStatus.BAD_REQUEST, "organiser availability cannot be updated");
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST, "organiser cannot be deleted");
         }
 
-        event.setEventParticipants(event.getEventParticipants().stream()
+        var participants = new ArrayList<EventParticipant>();
+
+        event.getEventParticipants().stream()
                 .filter(p -> !p.getEmail().equals(attendeeEmail))
-                .toList());
+                .forEach(participants::add);
+
+        event.setEventParticipants(participants);
 
         return mapToApiEvent(eventRepository.save(event));
     }
