@@ -44,7 +44,6 @@ import rsvplaner.v1.model.AttendeeAvailability;
 import rsvplaner.v1.model.Event;
 import rsvplaner.v1.model.EventDateTimesInner;
 import rsvplaner.v1.model.EventType;
-import rsvplaner.v1.model.InvitedPerson;
 import rsvplaner.v1.model.NewEvent;
 import rsvplaner.v1.model.Organizer;
 
@@ -126,8 +125,7 @@ public class EventService {
     }
 
     public Event addEventAttendee(String eventId, Attendee attendee) {
-        var event = eventRepository.findById(eventId).orElseThrow(() -> new ErrorResponseException(
-                HttpStatus.NOT_FOUND, String.format("event with id %s not found", eventId)));
+        var event = getEventOrThrow(eventId);
 
         event.getEventParticipants().stream().filter(p -> p.getEmail().equals(attendee.getEmail()))
                 .findAny().ifPresent(p -> {
@@ -411,14 +409,9 @@ public class EventService {
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Event updateAttendeeAvailability(String eventId, String attendeeEmail,
             List<AttendeeAvailability> attendeeAvailability) {
-        var event = eventRepository.findById(eventId).orElseThrow(() -> new ErrorResponseException(
-                HttpStatus.NOT_FOUND, String.format("event with id %s not found", eventId)));
+        var event = getEventOrThrow(eventId);
 
-        var eventParticipant = event.getEventParticipants().stream().filter(
-                p -> p.getEmail().equals(attendeeEmail)).findAny().orElseThrow(
-                () -> new ErrorResponseException(
-                        HttpStatus.NOT_FOUND, String.format("attendee with email %s not found",
-                        attendeeEmail)));
+        var eventParticipant = getEventParticipant(attendeeEmail, event);
 
         if (eventParticipant.getParticipantType() == EventParticipant.ParticipantType.ORGANISER) {
             throw new ErrorResponseException(HttpStatus.BAD_REQUEST,
@@ -438,24 +431,36 @@ public class EventService {
         return mapToApiEvent(event);
     }
 
-    public Event inviteAttendees(String eventId, List<InvitedPerson> invitedPersons) {
-        var event = eventRepository
+    public Event deleteAttendee(String eventId, String attendeeEmail) {
+        var event = getEventOrThrow(eventId);
+
+        var eventParticipant = getEventParticipant(attendeeEmail, event);
+
+        if (eventParticipant.getParticipantType() == EventParticipant.ParticipantType.ORGANISER) {
+            throw new ErrorResponseException(HttpStatus.BAD_REQUEST, "organiser availability cannot be updated");
+        }
+
+        event.setEventParticipants(event.getEventParticipants().stream()
+                .filter(p -> !p.getEmail().equals(attendeeEmail))
+                .toList());
+
+        return mapToApiEvent(eventRepository.save(event));
+    }
+
+    private static EventParticipant getEventParticipant(String attendeeEmail,
+            com.rsvpplaner.repository.model.Event event) {
+        return event.getEventParticipants().stream()
+                .filter(p -> p.getEmail().equals(attendeeEmail))
+                .findAny()
+                .orElseThrow(() -> new ErrorResponseException(
+                        HttpStatus.NOT_FOUND, String.format("attendee with email %s not found",
+                        attendeeEmail)));
+    }
+
+    private com.rsvpplaner.repository.model.Event getEventOrThrow(String eventId) {
+        return eventRepository
                 .findById(eventId)
                 .orElseThrow(() -> new ErrorResponseException(
                         HttpStatus.NOT_FOUND, String.format("event with id %s not found", eventId)));
-
-        invitedPersons.stream()
-                .filter(p -> event.getEventParticipants().stream()
-                        .noneMatch(e -> e.getEmail().equals(p.getEmail())))
-                .map(p -> EventParticipant.builder()
-                        .id(UUID.randomUUID().toString())
-                        .email(p.getEmail())
-                        .name(p.getName())
-                        .participantType(EventParticipant.ParticipantType.ATTENDEE)
-                        .event(event)
-                        .build())
-                .forEach(event::addEventParticipant);
-
-        return mapToApiEvent(eventRepository.save(event));
     }
 }

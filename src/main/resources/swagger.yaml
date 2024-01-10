@@ -281,6 +281,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - event
+      summary: Delete attendee
+      operationId: deleteAttendeeAvailability
+      description: |-
+        Delete the attendee from the event. The attendee must be an attendee of the event.
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: attendee_email
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: No content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     ErrorResponse:
