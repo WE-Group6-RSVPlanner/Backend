@@ -441,12 +441,13 @@ public class EventService {
         }
 
         var participants = new ArrayList<EventParticipant>();
-
         event.getEventParticipants().stream()
                 .filter(p -> !p.getEmail().equals(attendeeEmail))
                 .forEach(participants::add);
 
         event.setEventParticipants(participants);
+
+        eventParticipantRepository.delete(eventParticipant);
 
         return mapToApiEvent(eventRepository.save(event));
     }
