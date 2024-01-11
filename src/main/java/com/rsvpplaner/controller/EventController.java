@@ -143,4 +143,15 @@ public class EventController implements EventApi {
         return ResponseEntity.ok(
                 eventService.deleteAttendee(eventId, attendeeEmail));
     }
+
+    @Override
+    public ResponseEntity<Attendee> getAttendee(String eventId, String attendeeEmail) {
+        return ResponseEntity.ok(eventService.getAttendee(eventId, attendeeEmail));
+    }
+
+    @Override
+    public ResponseEntity<Attendee> updateAttendeeNotification(String eventId, String attendeeEmail, Boolean body) {
+        eventService.updateAttendeeNotification(eventId, attendeeEmail, body);
+        return ResponseEntity.noContent().build();
+    }
 }

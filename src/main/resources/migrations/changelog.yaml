@@ -3,3 +3,5 @@ databaseChangeLog:
       file: classpath:migrations/1_event.sql
   - include:
       file: classpath:migrations/2_event_location_description.sql
+  - include:
+      file: classpath:migrations/3_participant_notify.sql

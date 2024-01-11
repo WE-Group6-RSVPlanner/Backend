@@ -41,6 +41,9 @@ public class EventParticipant {
     @Column(name = "participant_type")
     private ParticipantType participantType;
 
+    @Column(name = "notify")
+    private boolean notify;
+
     @ManyToOne
     @JoinColumn(name = "event_id", referencedColumnName = "id", nullable = false)
     private Event event;

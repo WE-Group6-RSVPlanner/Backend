@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,6 +92,7 @@ public class EventService {
                         .id(UUID.randomUUID().toString())
                         .email(a.getEmail())
                         .name(a.getName())
+                        .notify(true)
                         .participantType(EventParticipant.ParticipantType.ATTENDEE)
                         .event(event)
                         .build();
@@ -108,6 +110,7 @@ public class EventService {
                 .id(UUID.randomUUID().toString())
                 .email(newEvent.getOrganizer().getEmail())
                 .name(newEvent.getOrganizer().getName())
+                .notify(true)
                 .participantType(EventParticipant.ParticipantType.ORGANISER)
                 .event(event)
                 .build();
@@ -319,15 +322,15 @@ public class EventService {
                 d -> new EventDateTimesInner().startTime(d.getStartTime().atOffset(
                         UTC)).endTime(d.getEndTime().atOffset(UTC))).toList());
         if (dbEvent.getEventType() == EventType.PRIVATE) {
-            event.setAttendees(dbEvent.getEventParticipants().stream().map(
-                    p -> new Attendee().name(p.getName()).email(
-                            p.getEmail()).attendeeAvailabilities(
-                            p.getAvailabilities().stream().map(
-                                    a -> new AttendeeAvailability().startTime(
-                                            a.getStartTime().atOffset(
-                                                    UTC)).endTime(
-                                            a.getEndTime().atOffset(UTC)).status(
-                                            a.getStatus())).toList())).toList());
+            event.setAttendees(dbEvent.getEventParticipants().stream()
+                    .map(p -> new Attendee()
+                            .name(p.getName())
+                            .email(p.getEmail())
+                            .notify(p.isNotify())
+                            .attendeeAvailabilities(p.getAvailabilities().stream()
+                                    .map(EventService::mapAttendeeAvailability)
+                                    .toList()))
+                    .toList());
         }
 
         if (dbEvent.getEventType() == EventType.PUBLIC) {
@@ -337,6 +340,13 @@ public class EventService {
         }
 
         return event;
+    }
+
+    private static AttendeeAvailability mapAttendeeAvailability(EventParticipantAvailability a) {
+        return new AttendeeAvailability()
+                .startTime(a.getStartTime().atOffset(UTC))
+                .endTime(a.getEndTime().atOffset(UTC))
+                .status(a.getStatus());
     }
 
     public void uploadImage(String eventId, Resource body) {
@@ -467,5 +477,31 @@ public class EventService {
                 .findById(eventId)
                 .orElseThrow(() -> new ErrorResponseException(
                         HttpStatus.NOT_FOUND, String.format("event with id %s not found", eventId)));
+    }
+
+    public Attendee getAttendee(String eventId, String attendeeEmail) {
+        return eventParticipantRepository
+                .findByEventIdAndEmail(eventId, attendeeEmail)
+                .map(p -> new Attendee()
+                        .email(p.getEmail())
+                        .name(p.getName())
+                        .notify(p.isNotify())
+                        .attendeeAvailabilities(p.getAvailabilities().stream()
+                                .map(EventService::mapAttendeeAvailability)
+                                .toList()))
+                .orElseThrow(() -> new ErrorResponseException(
+                        HttpStatus.NOT_FOUND,
+                        String.format(
+                                "attendee with email '%s' for event with id '%s' not found", attendeeEmail, eventId)));
+    }
+
+    public void updateAttendeeNotification(String eventId, String attendeeEmail, boolean notify) {
+        if (!eventParticipantRepository.existsByEventIdAndEmail(eventId, attendeeEmail)) {
+            throw new ErrorResponseException(HttpStatus.NOT_FOUND,
+                    String.format("attendee with email '%s' for event with id '%s' not found",
+                            attendeeEmail, eventId));
+        }
+
+        eventParticipantRepository.updateNotify(eventId, attendeeEmail, notify);
     }
 }
