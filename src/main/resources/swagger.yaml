@@ -380,7 +380,7 @@ paths:
               type: boolean
       responses:
         204:
-          description: OK
+          description: No content
           content:
             { }
         404:

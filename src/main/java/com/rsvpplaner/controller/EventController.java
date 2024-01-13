@@ -150,7 +150,7 @@ public class EventController implements EventApi {
     }
 
     @Override
-    public ResponseEntity<Attendee> updateAttendeeNotification(String eventId, String attendeeEmail, Boolean body) {
+    public ResponseEntity<Void> updateAttendeeNotification(String eventId, String attendeeEmail, Boolean body) {
         eventService.updateAttendeeNotification(eventId, attendeeEmail, body);
         return ResponseEntity.noContent().build();
     }
