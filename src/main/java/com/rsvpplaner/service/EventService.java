@@ -25,7 +25,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -362,26 +361,17 @@ public class EventService {
                     "image/png").stream(body.getInputStream(), body.contentLength(),
                     1000000000).build());
 
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (ServerException e) {
-            throw new RuntimeException(e);
-        } catch (InsufficientDataException e) {
-            throw new RuntimeException(e);
-        } catch (ErrorResponseException e) {
-            throw new RuntimeException(e);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        } catch (InvalidKeyException e) {
-            throw new RuntimeException(e);
-        } catch (InvalidResponseException e) {
-            throw new RuntimeException(e);
-        } catch (XmlParserException e) {
-            throw new RuntimeException(e);
-        } catch (InternalException e) {
-            throw new RuntimeException(e);
-        } catch (io.minio.errors.ErrorResponseException e) {
-            throw new RuntimeException(e);
+        } catch (IOException
+                | ErrorResponseException
+                | ServerException
+                | InsufficientDataException
+                | NoSuchAlgorithmException
+                | InvalidKeyException
+                | InvalidResponseException
+                | XmlParserException
+                | InternalException
+                | io.minio.errors.ErrorResponseException e) {
+            throw new IllegalStateException(e);
         }
     }
 
@@ -392,24 +382,16 @@ public class EventService {
             );
 
             return new ByteArrayResource(image.readAllBytes());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (ErrorResponseException e) {
-            throw new RuntimeException(e);
-        } catch (ServerException e) {
-            throw new RuntimeException(e);
-        } catch (InsufficientDataException e) {
-            throw new RuntimeException(e);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        } catch (InvalidKeyException e) {
-            throw new RuntimeException(e);
-        } catch (InvalidResponseException e) {
-            throw new RuntimeException(e);
-        } catch (XmlParserException e) {
-            throw new RuntimeException(e);
-        } catch (InternalException e) {
-            throw new RuntimeException(e);
+        } catch (IOException
+                | ErrorResponseException
+                | ServerException
+                | InsufficientDataException
+                | NoSuchAlgorithmException
+                | InvalidKeyException
+                | InvalidResponseException
+                | XmlParserException
+                | InternalException e) {
+            throw new IllegalStateException(e);
         } catch (io.minio.errors.ErrorResponseException e) {
             throw new ErrorResponseException(HttpStatus.NOT_FOUND,
                     String.format("image for event with id %s not found", eventId));

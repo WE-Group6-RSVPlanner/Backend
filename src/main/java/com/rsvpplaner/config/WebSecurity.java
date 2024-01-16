@@ -24,6 +24,7 @@ public class WebSecurity {
             public void addCorsMappings(@NotNull CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedMethods("*")
+                        .allowedOrigins("*")
                         .allowedHeaders("*")
                         .exposedHeaders("*");
             }
